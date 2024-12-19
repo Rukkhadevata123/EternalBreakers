@@ -21,7 +21,8 @@ cd EternalBreakers
 To speed up Maven dependency downloads, you can configure a mirror. Open the Maven settings file:
 
 ```bash
-sudo vim /usr/share/java/maven/conf/settings.xml
+sudo vim /usr/share/java/maven/conf/settings.xml # archlinux
+# sudo vim /etc/maven/settings.xml # Ubuntu
 ```
 
 Add the following mirror configuration:
