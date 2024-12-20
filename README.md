@@ -1,6 +1,6 @@
 # Eternal Breaker
 
-Eternal Breaker is a JavaFX-based game. This README will guide you through the steps to set up, build, and run the game.
+Eternal Breaker is a JavaFX-based game. This guide provides the steps to set up, build, and run the game on your system.
 
 ## Prerequisites
 
@@ -10,47 +10,86 @@ Eternal Breaker is a JavaFX-based game. This README will guide you through the s
 
 ### 1. Clone the Repository
 
+Clone the repository and navigate to the project folder:
+
 ```bash
 git clone https://github.com/Rukkhadevata123/EternalBreakers.git
 cd EternalBreakers
 ```
 
-### 2. Install Dependencies(Optional)
+### 2. Install Dependencies (Optional)
 
-Run the following command to install the game dependencies:
+You may need to install the game dependencies using the following commands:
+
+#### For GNU/Linux
 
 ```bash
 ./mvnw clean install -s ./.mvn/conf/settings.xml
 ```
 
-## Run the Game
+#### For Windows
 
-To run the game, run the following command:
+```powershell
+.\mvnw.cmd clean install -s .\.mvn\conf\settings.xml
+```
+
+## Running the Game
+
+To run the game, use the following commands:
+
+#### For GNU/Linux
 
 ```bash
 ./mvnw clean javafx:run -s ./.mvn/conf/settings.xml
 ```
 
-## Build the Game(Optional)
+#### For Windows
 
-To build the game, run the following command:
+```powershell
+.\mvnw.cmd clean javafx:run -s .\.mvn\conf\settings.xml
+```
+
+## Building the Game (Optional)
+
+To build the game package, use the following commands:
+
+#### For GNU/Linux
 
 ```bash
 ./mvnw package -s ./.mvn/conf/settings.xml
 ```
 
-Then go to [this link](https://gluonhq.com/products/javafx/) to download the JavaFX SDK.
+#### For Windows
 
-Suppose you have downloaded the JavaFX SDK to the `~/Downloads/openjfx-17.0.13_linux-x64_bin-sdk.zip` folder. Then you can run the following command:
+```powershell
+.\mvnw.cmd package -s .\.mvn\conf\settings.xml
+```
+
+### Download the JavaFX SDK
+
+Visit the [JavaFX SDK download page](https://gluonhq.com/products/javafx/) to get the appropriate version of the JavaFX SDK.
+
+For example, if you download the SDK to `~/Downloads/openjfx-17.0.13_linux-x64_bin-sdk.zip`, you can extract it as follows:
 
 ```bash
 unzip ~/Downloads/openjfx-17.0.13_linux-x64_bin-sdk.zip -d target
 ```
 
-Finally, you can run the following command to run the game:
+### Running the Game with the JAR File
 
-The same Jar file can be downloaded from this repository's release section.
+After building the game, you can run it with the following command:
+
+#### For GNU/Linux
 
 ```bash
-java --module-path target/javafx-sdk-17.0.13/lib/  --add-modules javafx.controls,javafx.fxml -jar target/eternal_breaker-1.0-RELEASE-jar-with-dependencies.jar
+java --module-path target/javafx-sdk-17.0.13/lib/ --add-modules javafx.controls,javafx.fxml -jar target/eternal_breaker-1.0-RELEASE-jar-with-dependencies.jar
 ```
+
+#### For Windows
+
+If you've downloaded the JavaFX SDK to `D:\javas\javafx-sdk-17.0.13`, use this command to run the game:
+
+```powershell
+java -jar --module-path=D:\javas\javafx-sdk-17.0.13\lib --add-modules javafx.controls,javafx.fxml -jar .\target\eternal_breaker-1.0-RELEASE-jar-with-dependencies.jar
+```
+
