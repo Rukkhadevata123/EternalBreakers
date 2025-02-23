@@ -8,6 +8,8 @@ Eternal Breaker is a JavaFX-based game. This guide provides the steps to set up,
 
 ## Setup
 
+> NOTE: If you encounter HiDPI issues on GNU/Linux using Wayland, you may need to set the environment variable `_JAVA_OPTIONS='-Dglass.gtk.uiScale=150%'` before running the game.
+
 ### 1. Clone the Repository
 
 Clone the repository and navigate to the project folder:

@@ -1,6 +1,8 @@
 package com.eternalbreaker.view;
 
 import com.eternalbreaker.model.GameConstants;
+import com.eternalbreaker.model.GameVersion;
+
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -24,6 +26,7 @@ public class GameView {
     private final Label paddleLengthLabel;
     private final Label totalTimeUsedLabel;
     private final Label lastRoundTimeLabel;
+    private final Label versionLabel;
 
     private final Button slowSpeedButton;
     private final Button normalSpeedButton;
@@ -114,17 +117,28 @@ public class GameView {
 
         // Create the labels for the game status
         scoreDisplayLabel = createLabel("Score: 0", 10, 100, true);
-        roundDisplayLabel = createLabel("Round: 1", 10, 120, true);
-        lastRoundTimeLabel = createLabel("Time used in the last round: 0.0 seconds", 10, 140, true);
-        totalTimeUsedLabel = createLabel("Time used in all rounds: 0.0 seconds", 10, 160, true);
-        ballSpeedLabel = createLabel("Speed: Normal(" + GameConstants.BALL_SPEED_NORMAL + ")", 10, 180, true);
-        paddleLengthLabel = createLabel("Length: Normal(" + GameConstants.PADDLE_LENGTH_NORMAL + ")", 10, 200, true);
+        roundDisplayLabel = createLabel("Round: 1", 10, 130, true);
+        lastRoundTimeLabel = createLabel("Time used in the last round: 0.0 seconds", 10, 170, true);
+        totalTimeUsedLabel = createLabel("Time used in all rounds: 0.0 seconds", 10, 200, true);
+        ballSpeedLabel = createLabel("Speed: Normal(" + GameConstants.BALL_SPEED_NORMAL + ")", 10, 240, true);
+        paddleLengthLabel = createLabel("Length: Normal(" + GameConstants.PADDLE_LENGTH_NORMAL + ")", 10, 270, true);
         statusMessageLabel = createLabel("Get ready!", (double) (GameConstants.SCREEN_WIDTH - 100) / 2, (double) GameConstants.SCREEN_HEIGHT / 2 - 100, false);
+
+        // Add version label
+        versionLabel = createLabel("Version: " + GameVersion.VERSION, 10, 310, true);
     }
 
     private Label createLabel(String text, double x, double y, boolean visible) {
         Label label = new Label(text);
-        label.setTextFill(Color.BLACK);
+        label.setTextFill(Color.WHITE);
+        label.setStyle(
+            "-fx-background-color: rgba(72, 69, 69, 0.7);" +
+            "-fx-padding: 5px 10px;" +
+            "-fx-background-radius: 5px;" +
+            "-fx-effect: dropshadow(gaussian, rgba(58, 50, 50, 0.5), 5, 0, 0, 1);" +
+            "-fx-font-weight: bold;" +
+            "-fx-font-size: 12px;"
+        );
         label.setLayoutX(x);
         label.setLayoutY(y);
         label.setVisible(visible);
@@ -174,6 +188,10 @@ public class GameView {
 
     public Label getLastRoundTimeLabel() {
         return lastRoundTimeLabel;
+    }
+
+    public Label getVersionLabel() {
+        return versionLabel;
     }
 
     public Button getSlowSpeedButton() {
