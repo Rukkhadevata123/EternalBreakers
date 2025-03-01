@@ -2,36 +2,28 @@ package com.eternalbreaker.controller;
 
 import com.eternalbreaker.model.GameConstants;
 import com.eternalbreaker.model.GameState;
-import com.eternalbreaker.model.Stopwatch;
 import com.eternalbreaker.view.GameView;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
-import javafx.application.Platform;
 import javafx.scene.Scene;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.paint.Color;
 import javafx.util.Duration;
-
-import java.util.concurrent.ThreadLocalRandom;
 
 public class GameController {
     private final GameView gameView;
     private final GameState gameState;
     private final Scene scene;
-    private final ThreadLocalRandom random = ThreadLocalRandom.current();
+
+    private BallPhysicsManager ballPhysicsManager;
+    private UIUpdateManager uiManager;
+    private GameModeManager modeManager;
+    private TimerManager timerManager;
+    private ScoreManager scoreManager;
+    private InputManager inputManager;
 
     private Timeline animation;
-    private Timeline statusMessageTimeline;
-    private Timeline gameStartCountdownTimeline;
-    private Timeline resetCountdownTimeline;
 
     private boolean gameIsRunning = false;
     private boolean resetInProgress = false;
-    private boolean randomModeActive = false;
-
-    private double ballVelocityX = GameConstants.BALL_SPEED_NORMAL;
-    private double ballVelocityY = GameConstants.BALL_SPEED_NORMAL;
-    private double ballTrajectoryAngle = Math.PI / 4;
 
     public GameController(GameView gameView, GameState gameState, Scene scene) {
         this.gameView = gameView;
@@ -42,388 +34,361 @@ public class GameController {
     }
 
     private void initialize() {
-        scene.setOnMouseMoved(this::handleMouseMoved);
+        initializeManagers();
+        setupGameLoop();
+        setupButtonListeners();
+        setupUIComponents();
+    }
 
+    private void initializeManagers() {
+        // 创建所有管理器，解决循环依赖问题
+        uiManager = new UIUpdateManager(gameView, gameState);
+        modeManager = new GameModeManager(gameView, null, uiManager);
+        scoreManager = new ScoreManager(gameView, gameState, modeManager, null);
+        ballPhysicsManager = new BallPhysicsManager(gameView, scoreManager, modeManager);
+
+        // 设置依赖关系
+        modeManager.setPhysicsManager(ballPhysicsManager);
+        scoreManager.setPhysicsManager(ballPhysicsManager);
+
+        timerManager = new TimerManager(gameState, uiManager);
+        inputManager = new InputManager(gameView, scene);
+    }
+
+    private void setupGameLoop() {
         animation = new Timeline(new KeyFrame(Duration.millis(10), e -> {
             try {
-                moveBall();
+                gameLoop();
             } catch (InterruptedException ex) {
                 throw new RuntimeException(ex);
             }
         }));
         animation.setCycleCount(Timeline.INDEFINITE);
-
-        gameView.getSlowSpeedButton().setOnAction(e -> setBallSpeed(GameConstants.BALL_SPEED_SLOW));
-        gameView.getNormalSpeedButton().setOnAction(e -> setBallSpeed(GameConstants.BALL_SPEED_NORMAL));
-        gameView.getFastSpeedButton().setOnAction(e -> setBallSpeed(GameConstants.BALL_SPEED_FAST));
-        gameView.getLongLengthButton().setOnAction(e -> setPaddleLength(GameConstants.PADDLE_LENGTH_LONG));
-        gameView.getNormalLengthButton().setOnAction(e -> setPaddleLength(GameConstants.PADDLE_LENGTH_NORMAL));
-        gameView.getShortLengthButton().setOnAction(e -> setPaddleLength(GameConstants.PADDLE_LENGTH_SHORT));
-        gameView.getHellMButton().setOnAction(e -> setHellMode());
-        gameView.getRandomModeButton().setOnAction(e -> setRandomMode());
-        gameView.getStartButton().setOnAction(e -> startGame());
     }
 
-    private void setBallSpeed(double speed) {
-        if (!randomModeActive && ballVelocityX != GameConstants.BALL_SPEED_HELL || !gameIsRunning) {
-            ballVelocityX = ballVelocityY = speed;
-            randomModeActive = false;
-            gameView.getBallSpeedLabel().setText("Speed: " + speed);
-        }
+    private void setupUIComponents() {
+        // 设置UI更新组件
+        uiManager.setupScoreLabel();
+        uiManager.setupRoundLabel();
+        uiManager.setupTotalTimeUsedLabel();
+        uiManager.setupLastRoundTimeUsedLabel();
     }
 
-    private void setPaddleLength(double length) {
-        if (!randomModeActive && ballVelocityX != GameConstants.BALL_SPEED_HELL || !gameIsRunning) {
-            gameView.getPlayerPaddle().setWidth(length);
-            gameView.getPlayerPaddle().setVisible(true);
-            randomModeActive = false;
-            gameView.getPaddleLengthLabel().setText("Length: " + length);
-        }
+    // 添加新的方法来管理按钮状态
+    private void updateButtonsState() {
+        boolean settingsEnabled = !gameIsRunning;
+
+        // 更新速度按钮
+        gameView.getSlowSpeedButton().setDisable(!settingsEnabled);
+        gameView.getNormalSpeedButton().setDisable(!settingsEnabled);
+        gameView.getFastSpeedButton().setDisable(!settingsEnabled);
+
+        // 更新挡板长度按钮
+        gameView.getLongLengthButton().setDisable(!settingsEnabled);
+        gameView.getNormalLengthButton().setDisable(!settingsEnabled);
+        gameView.getShortLengthButton().setDisable(!settingsEnabled);
+
+        // 更新游戏模式按钮
+        gameView.getHellMButton().setDisable(!settingsEnabled);
+        gameView.getRandomModeButton().setDisable(!settingsEnabled);
     }
 
-    private void setHellMode() {
-        if (!gameIsRunning) {
-            ballVelocityX = ballVelocityY = GameConstants.BALL_SPEED_HELL;
-            randomModeActive = false;
-            gameView.getPlayerPaddle().setWidth(GameConstants.PADDLE_LENGTH_NORMAL);
-            gameView.getPlayerPaddle().setVisible(false);
+    // 修改 setupButtonListeners 方法，为所有按钮添加游戏状态检查
+    private void setupButtonListeners() {
+        // 速度控制按钮
+        gameView.getSlowSpeedButton().setOnAction(e -> {
+            if (!gameIsRunning) {
+                modeManager.setSlowSpeed();
+            }
+        });
 
-            gameView.getBallSpeedLabel().setText("Speed: HELL(" + GameConstants.BALL_SPEED_HELL + ")");
-            gameView.getPaddleLengthLabel().setText("Length: TRANSPARENT(" + GameConstants.PADDLE_LENGTH_NORMAL + ")");
-        }
-    }
+        gameView.getNormalSpeedButton().setOnAction(e -> {
+            if (!gameIsRunning) {
+                modeManager.setNormalSpeed();
+            }
+        });
 
-    private void setRandomMode() {
-        if (!gameIsRunning) {
-            randomModeActive = true;
-            changeSpeed();
-            changeLength();
-        }
-    }
+        gameView.getFastSpeedButton().setOnAction(e -> {
+            if (!gameIsRunning) {
+                modeManager.setFastSpeed();
+            }
+        });
 
-    private void startGame() {
-        if (!gameIsRunning) {
-            gameIsRunning = true;
-            resetInProgress = true;
-            resetGame();
-            showAndHideMessage("Get ready!", 1);
-            gameState.setPreparationTimeLeft(3);
-            startCountdown();
-        }
-    }
+        // 挡板长度控制按钮
+        gameView.getLongLengthButton().setOnAction(e -> {
+            if (!gameIsRunning) {
+                modeManager.setLongPaddleLength();
+            }
+        });
 
-    private void startCountdown() {
-        gameStartCountdownTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
-            if (gameState.getPreparationTimeLeft() > 0) {
-                String message = "Game starting in " + gameState.getPreparationTimeLeft() + " seconds...";
-                showAndHideMessage(message, 1);
-                gameState.setPreparationTimeLeft(gameState.getPreparationTimeLeft() - 1);
+        gameView.getNormalLengthButton().setOnAction(e -> {
+            if (!gameIsRunning) {
+                modeManager.setNormalPaddleLength();
+            }
+        });
+
+        gameView.getShortLengthButton().setOnAction(e -> {
+            if (!gameIsRunning) {
+                modeManager.setShortPaddleLength();
+            }
+        });
+
+        // 游戏模式按钮
+        gameView.getHellMButton().setOnAction(e -> {
+            if (!gameIsRunning) {
+                modeManager.setHellMode();
+            }
+        });
+
+        gameView.getRandomModeButton().setOnAction(e -> {
+            if (!gameIsRunning) {
+                boolean isActive = !modeManager.isRandomModeActive();
+                modeManager.setRandomMode(isActive);
+                if (isActive) {
+                    uiManager.showAndHideMessage("Random mode activated! Speed and length will change randomly.", 3);
+                    modeManager.changeSpeed();
+                    modeManager.changeLength();
+                } else {
+                    uiManager.showAndHideMessage("Random mode deactivated!", 3);
+                }
+            }
+        });
+
+        // 开始按钮 - 保持现有逻辑
+        gameView.getStartButton().setOnAction(e -> {
+            if (!gameIsRunning && !resetInProgress) {
+                startGame();
+            } else if (gameIsRunning) {
+                pauseGame();
             } else {
-                showAndHideMessage("Game started!", 3);
-                animation.play();
-                gameState.setGameRoundStopwatch(new Stopwatch());
-                gameState.setBrickResetStopwatch(new Stopwatch());
-                updateScoreLabel();
-                updateRoundLabel();
-                gameState.setPreparationTimeLeft(0);
-                gameStartCountdownTimeline.stop();
-                gameIsRunning = true;
+                resumeGame();
             }
-        }));
-        gameStartCountdownTimeline.setCycleCount(4);
-        gameStartCountdownTimeline.play();
+        });
+
+        // 初始更新按钮状态
+        updateButtonsState();
     }
 
-    private void changeSpeed() {
-        Platform.runLater(() -> {
-            int randomSpeed = random.nextInt(3);
-            switch (randomSpeed) {
-                case 0:
-                    ballVelocityX = ballVelocityY = randomModeActive ? GameConstants.BALL_SPEED_SLOW * (1 + Math.random()) : GameConstants.BALL_SPEED_SLOW;
-                    gameView.getBallSpeedLabel().setText("Speed: Slow(" + GameConstants.BALL_SPEED_SLOW + ")");
-                    break;
-                case 1:
-                    ballVelocityX = ballVelocityY = randomModeActive ? GameConstants.BALL_SPEED_NORMAL * (1 + Math.random()) : GameConstants.BALL_SPEED_NORMAL;
-                    gameView.getBallSpeedLabel().setText("Speed: Normal(" + GameConstants.BALL_SPEED_NORMAL + ")");
-                    break;
-                case 2:
-                    ballVelocityX = ballVelocityY = randomModeActive ? GameConstants.BALL_SPEED_FAST * (1 + Math.random()) : GameConstants.BALL_SPEED_FAST;
-                    gameView.getBallSpeedLabel().setText("Speed: Fast(" + GameConstants.BALL_SPEED_FAST + ")");
-                    break;
+    private void gameLoop() throws InterruptedException {
+        if (gameIsRunning) {
+            // 移动球
+            ballPhysicsManager.moveBall();
+
+            // 检查是否所有砖块都被打破
+            if (ballPhysicsManager.checkAllBricksBroken()) {
+                handleAllBricksBroken();
             }
+
+            // 检查球是否碰到底部墙壁
+            if (ballPhysicsManager.checkBottomWallCollision()) {
+                handleGameLost();
+            }
+        }
+    }
+
+    // 在startGame方法中添加按钮状态更新
+    private void startGame() {
+        // 游戏状态设置
+        gameIsRunning = true;
+        resetInProgress = false; // 修改为false，表示没有重置正在进行
+        gameView.getStartButton().setText("Pause");
+
+        // 禁用游戏设置按钮
+        updateButtonsState();
+
+        // 隐藏之前显示的游戏结束消息
+        gameView.getStatusMessageLabel().setVisible(false);
+
+        // 重置游戏状态
+        resetGame();
+
+        // 初始显示时间为0
+        gameView.getTotalTimeUsedLabel().setText("Total time used: 0.0 seconds");
+        gameView.getLastRoundTimeLabel().setText("Current round time: 0.0 seconds");
+
+        // 开始倒计时，添加消息显示
+        uiManager.showAndHideMessage("Get ready!", 1);
+        gameState.setPreparationTimeLeft(3);
+        timerManager.startGameCountdown(() -> {
+            gameIsRunning = true;
+            animation.play();
+            // 启动计时器显示
+            uiManager.startTimers();
+            // 确保倒计时结束后按钮仍保持禁用
+            updateButtonsState();
         });
     }
 
-    private void changeLength() {
-        Platform.runLater(() -> {
-            int randomLength = random.nextInt(3);
-            switch (randomLength) {
-                case 0:
-                    gameView.getPlayerPaddle().setWidth(randomModeActive ? GameConstants.PADDLE_LENGTH_SHORT * (1 + Math.random()) : GameConstants.PADDLE_LENGTH_SHORT);
-                    gameView.getPlayerPaddle().setVisible(true);
-                    gameView.getPaddleLengthLabel().setText("Length: Short(" + GameConstants.PADDLE_LENGTH_SHORT + ")");
-                    break;
-                case 1:
-                    gameView.getPlayerPaddle().setWidth(randomModeActive ? GameConstants.PADDLE_LENGTH_NORMAL * (1 + Math.random()) : GameConstants.PADDLE_LENGTH_NORMAL);
-                    gameView.getPlayerPaddle().setVisible(true);
-                    gameView.getPaddleLengthLabel().setText("Length: Normal(" + GameConstants.PADDLE_LENGTH_NORMAL + ")");
-                    break;
-                case 2:
-                    gameView.getPlayerPaddle().setWidth(randomModeActive ? GameConstants.PADDLE_LENGTH_LONG * (1 + Math.random()) : GameConstants.PADDLE_LENGTH_LONG);
-                    gameView.getPlayerPaddle().setVisible(true);
-                    gameView.getPaddleLengthLabel().setText("Length: Long(" + GameConstants.PADDLE_LENGTH_LONG + ")");
-                    break;
-            }
-        });
-    }
-
-    private void handleMouseMoved(MouseEvent e) {
-        double mouseX = e.getX();
-        gameView.getPlayerPaddle().setX(mouseX - gameView.getPlayerPaddle().getWidth() / 2);
-    }
-
-    private void showAndHideMessage(String message, int duration) {
-        if (statusMessageTimeline != null) {
-            statusMessageTimeline.stop();
-        }
-        gameView.getStatusMessageLabel().setText(message);
-        gameView.getStatusMessageLabel().setVisible(true);
-        statusMessageTimeline = new Timeline(new KeyFrame(Duration.seconds(duration), e -> gameView.getStatusMessageLabel().setVisible(false)));
-        statusMessageTimeline.play();
-    }
-
-    private void updateScoreLabel() {
-        Timeline scoreUpdater = new Timeline(new KeyFrame(Duration.millis(100), e -> gameView.getScoreDisplayLabel().setText("Score: " + gameState.getPlayerScore())));
-        scoreUpdater.setCycleCount(Timeline.INDEFINITE);
-        scoreUpdater.play();
-    }
-
-    private void updateRoundLabel() {
-        Timeline roundUpdater = new Timeline(new KeyFrame(Duration.millis(100), e -> gameView.getRoundDisplayLabel().setText("Round: " + gameState.getCurrentGameRound())));
-        roundUpdater.setCycleCount(Timeline.INDEFINITE);
-        roundUpdater.play();
-    }
-
-    private void updateTotalTimeUsedLabel() {
-        Timeline totalTimeUpdater = new Timeline(new KeyFrame(Duration.millis(100), e -> gameView.getTotalTimeUsedLabel().setText("Total time used: " + gameState.getTotalElapsedTime() + " seconds")));
-        totalTimeUpdater.setCycleCount(Timeline.INDEFINITE);
-        totalTimeUpdater.play();
-    }
-
-    private void updateLastRoundTimeUsedLabel() {
-        Timeline lastRoundTimeUpdater = new Timeline(new KeyFrame(Duration.millis(100), e -> gameView.getLastRoundTimeLabel().setText("Last round time used: " + gameState.getLastRoundElapsedTime() + " seconds")));
-        lastRoundTimeUpdater.setCycleCount(Timeline.INDEFINITE);
-        lastRoundTimeUpdater.play();
-    }
-
-    private void updateScore() {
-        if (randomModeActive) {
-            gameState.setPlayerScore(gameState.getPlayerScore() + (int) (Math.random() * 10)); // Add a random number from 0 to 9 to the playerScore
-        }
-        if (ballVelocityX == GameConstants.BALL_SPEED_HELL && ballVelocityY == GameConstants.BALL_SPEED_HELL) {
-            gameState.setPlayerScore(gameState.getPlayerScore() + 6);
-        }
-        if (!gameView.getPlayerPaddle().isVisible()) {
-            gameState.setPlayerScore(gameState.getPlayerScore() + 6);
-        }
-        if (ballVelocityX != GameConstants.BALL_SPEED_HELL && ballVelocityY != GameConstants.BALL_SPEED_HELL) {
-            switch ((int) ballVelocityX) {
-                case (int) GameConstants.BALL_SPEED_SLOW:
-                    gameState.setPlayerScore(gameState.getPlayerScore() + 1);
-                    break;
-                case (int) GameConstants.BALL_SPEED_NORMAL:
-                    gameState.setPlayerScore(gameState.getPlayerScore() + 2);
-                    break;
-                case (int) GameConstants.BALL_SPEED_FAST:
-                    gameState.setPlayerScore(gameState.getPlayerScore() + 3);
-                    break;
-            }
-            switch ((int) gameView.getPlayerPaddle().getWidth()) {
-                case (int) GameConstants.PADDLE_LENGTH_LONG:
-                    gameState.setPlayerScore(gameState.getPlayerScore() + 1);
-                    break;
-                case (int) GameConstants.PADDLE_LENGTH_NORMAL:
-                    gameState.setPlayerScore(gameState.getPlayerScore() + 2);
-                    break;
-                case (int) GameConstants.PADDLE_LENGTH_SHORT:
-                    gameState.setPlayerScore(gameState.getPlayerScore() + 3);
-                    break;
-            }
-        }
-    }
-
+    // 添加新方法，合并resetBricks和resetBall，并添加其他重置逻辑
     private void resetGame() {
-        gameView.getGameBall().setCenterX((double) GameConstants.SCREEN_WIDTH / 2);
-        gameView.getGameBall().setCenterY((double) GameConstants.SCREEN_HEIGHT / 2);
-        gameView.getPlayerPaddle().setX((double) GameConstants.SCREEN_WIDTH / 2 - GameConstants.PADDLE_LENGTH_NORMAL / 2);
+        resetBricks();
+        resetBall();
 
-        for (int i = 0; i < GameConstants.TOTAL_BRICK_ROWS; i++) {
-            for (int j = 0; j < GameConstants.TOTAL_BRICK_COLUMNS; j++) {
-                gameView.getGameBricks()[i][j].setVisible(true);
-            }
-        }
+        // 重置挡板位置
+        gameView.getPlayerPaddle().setX((double) GameConstants.SCREEN_WIDTH / 2 -
+                gameView.getPlayerPaddle().getWidth() / 2);
 
         gameState.setPlayerScore(0);
         gameState.setCurrentGameRound(1);
-        updateScoreLabel();
-        updateRoundLabel();
 
         gameState.setTotalElapsedTime(0);
         gameState.setLastRoundElapsedTime(0);
-        updateTotalTimeUsedLabel();
-        updateLastRoundTimeUsedLabel();
 
-        gameState.setGameRoundStopwatch(new Stopwatch());
-        gameState.setBrickResetStopwatch(new Stopwatch());
+        // 不需要单独调用以下方法，因为UIUpdateManager已经设置了Timeline
+        // updateScoreLabel();
+        // updateRoundLabel();
+        // updateTotalTimeUsedLabel();
+        // updateLastRoundTimeUsedLabel();
     }
 
-    private void restoreBricks() {
+    // 在pauseGame方法中添加注释解释按钮状态
+    private void pauseGame() {
+        gameIsRunning = false;
+        animation.pause();
+        gameState.getGameRoundStopwatch().pause();
+        gameState.getBrickResetStopwatch().pause(); // 确保两个秒表都暂停
+        uiManager.pauseTimers(); // 暂停时间显示更新
+
+        gameView.getStartButton().setText("Resume");
+        uiManager.showAndHideMessage("Game paused", 999);
+
+        // 保持按钮禁用状态，即使游戏暂停
+        // 我们不希望玩家在暂停时修改设置
+        // gameIsRunning为false但不更新按钮状态，确保暂停时不能修改设置
+    }
+
+    // 在resumeGame方法中添加按钮状态更新
+    private void resumeGame() {
+        gameIsRunning = true;
+        gameState.getGameRoundStopwatch().resume();
+        gameState.getBrickResetStopwatch().resume(); // 确保两个秒表都恢复
+        animation.play();
+        uiManager.startTimers(); // 恢复时间显示更新
+
+        gameView.getStartButton().setText("Pause");
+        uiManager.showAndHideMessage("Game resumed", 3);
+
+        // 再次禁用设置按钮
+        updateButtonsState();
+    }
+
+    // 添加调试输出到handleAllBricksBroken方法
+    private void handleAllBricksBroken() {
+        System.out.println("检查所有砖块是否被打破: resetInProgress = " + resetInProgress);
+
+        if (!resetInProgress) {
+            resetInProgress = true; // 设置标志，防止重复处理
+            gameIsRunning = false;
+            animation.pause();
+
+            // 获取下一轮的轮数
+            int nextRound = gameState.getCurrentGameRound() + 1;
+            gameState.setCurrentGameRound(nextRound);
+
+            // 确保消息显示明确且足够长时间可见
+            String levelCompleteMessage = String.format("恭喜! 第 %d 轮完成!", gameState.getCurrentGameRound() - 1);
+            uiManager.showAndHideMessage(levelCompleteMessage, 2);
+
+            // 添加调试消息
+            System.out.println("所有砖块已消除，准备进入第 " + nextRound + " 轮");
+
+            // 等待短暂时间后开始倒计时，确保完成消息可见
+            Timeline delayTimeline = new Timeline(new KeyFrame(Duration.seconds(1.5), e -> {
+                System.out.println("开始倒计时到下一轮...");
+                timerManager.startResetCountdown(this::resetForNextRound);
+            }));
+            delayTimeline.play();
+        }
+    }
+
+    // 在handleGameLost方法中添加按钮状态更新
+    private void handleGameLost() {
+        gameIsRunning = false;
+        resetInProgress = false;
+        animation.pause();
+        uiManager.pauseTimers(); // 游戏结束时停止计时器显示更新
+
+        // 启用游戏设置按钮
+        updateButtonsState();
+
+        // 创建包含得分信息的游戏结束消息
+        String gameOverMessage = String.format("游戏结束! 最终得分: %d  通过轮数: %d\n总游戏时间: %.1f秒\n点击Start重新开始",
+                gameState.getPlayerScore(),
+                gameState.getCurrentGameRound() - 1,
+                gameState.getTotalElapsedTime());
+
+        // 显示游戏结束消息，持续时间更长
+        uiManager.showAndHideMessage(gameOverMessage, 999); // 使用999表示持久显示，直到下一次开始
+        gameView.getStartButton().setText("Start");
+
+        // 重置游戏模式但保留分数和时间统计
+        modeManager.resetGameModes();
+
+        // 恢复挡板可见性
+        gameView.getPlayerPaddle().setVisible(true);
+
+        // 重置球的速度为正常速度
+        ballPhysicsManager.setBallVelocity(GameConstants.BALL_SPEED_NORMAL);
+
+        // ⚠️ 不要在这里重置分数和轮数！让玩家能看到自己的成绩
+    }
+
+    // 修改resetForNextRound方法，删除重复设置秒表的代码
+    private void resetForNextRound() {
+        System.out.println("重置下一轮游戏");
+
+        // 重置砖块和球
+        resetBricks();
+        resetBall();
+
+        // 重要：先将resetInProgress设置为false，表示重置过程已完成
+        resetInProgress = false;
+
+        // 然后才设置游戏运行状态
+        gameIsRunning = true;
+
+        // 恢复游戏动画
+        animation.play();
+
+        // 重新禁用按钮
+        updateButtonsState();
+
+        // 不需要在这里重置秒表，TimerManager.startResetCountdown中已经做了
+        // gameState.setBrickResetStopwatch(new Stopwatch());
+
+        // 如果是随机模式，更新速度和长度
+        if (modeManager.isRandomModeActive()) {
+            modeManager.changeSpeed();
+            modeManager.changeLength();
+        }
+
+        // 显示新回合开始的消息
+        uiManager.showAndHideMessage("开始第 " + gameState.getCurrentGameRound() + " 轮!", 2);
+    }
+
+    private void resetBricks() {
+        // 重置所有砖块
         for (int i = 0; i < GameConstants.TOTAL_BRICK_ROWS; i++) {
             for (int j = 0; j < GameConstants.TOTAL_BRICK_COLUMNS; j++) {
                 gameView.getGameBricks()[i][j].setVisible(true);
             }
         }
-        gameState.setCurrentGameRound(gameState.getCurrentGameRound() + 1);
-        resetInProgress = true;
-        // gameState.setResetCountdownTime(10);
-        gameState.setBrickResetStopwatch(new Stopwatch());
     }
 
-    private double calculateHitFactor(double ballCenterX, double paddleX, double paddleWidth, boolean randomModeActive) {
-        double hitFactor = (ballCenterX - paddleX) / paddleWidth - 0.5;
-        if (randomModeActive) {
-            hitFactor += (Math.random() - 0.5) / 2.0;
-        }
-        return hitFactor;
+    private void resetBall() {
+        // 重置球的位置
+        gameView.getGameBall().setCenterX(GameConstants.SCREEN_WIDTH / 2.0);
+        gameView.getGameBall().setCenterY(GameConstants.SCREEN_HEIGHT / 2.0);
     }
 
-    private void handleCollision(double ballCenterX, double paddleX, double paddleWidth, boolean randomModeActive) {
-        double hitFactor = calculateHitFactor(ballCenterX, paddleX, paddleWidth, randomModeActive);
-        if (hitFactor == 0) {
-            ballTrajectoryAngle = Math.PI / 2;
-        } else {
-            ballTrajectoryAngle = hitFactor < 0 ? Math.PI - Math.max(hitFactor * -Math.PI / 2, Math.PI / 6) : Math.max(hitFactor * Math.PI / 2, Math.PI / 6);
-        }
-    }
-
-    private void moveBall() throws InterruptedException {
-        // Check if the gameBall hits the left or right wall
-        if (gameView.getGameBall().getCenterX() < GameConstants.BALL_SIZE_RADIUS + 1 || gameView.getGameBall().getCenterX() > GameConstants.SCREEN_WIDTH - GameConstants.BALL_SIZE_RADIUS - 1) {
-            ballTrajectoryAngle = Math.PI - ballTrajectoryAngle;
-            gameView.getGameBall().setCenterX(gameView.getGameBall().getCenterX() < GameConstants.BALL_SIZE_RADIUS + 1 ? GameConstants.BALL_SIZE_RADIUS + 1 : GameConstants.SCREEN_WIDTH - GameConstants.BALL_SIZE_RADIUS - 1);
-
-            if (randomModeActive) {
-                ballTrajectoryAngle += random.nextDouble() * 0.3 - 0.15;
-            }
-        }
-
-        // Check if the gameBall hits the top wall
-        if (gameView.getGameBall().getCenterY() < GameConstants.BALL_SIZE_RADIUS + GameConstants.BRICK_TILE_HEIGHT) {
-            ballTrajectoryAngle = -ballTrajectoryAngle;
-            gameView.getGameBall().setCenterY(GameConstants.BALL_SIZE_RADIUS + GameConstants.BRICK_TILE_HEIGHT + 1);
-
-            if (randomModeActive) {
-                ballTrajectoryAngle += random.nextDouble() * 0.3 - 0.15;
-            }
-        }
-
-        // Check if the gameBall hits the bottom wall
-        if (gameView.getGameBall().getCenterY() > GameConstants.SCREEN_HEIGHT - GameConstants.BALL_SIZE_RADIUS) {
+    public void shutdown() {
+        // 停止所有活动
+        if (animation != null) {
             animation.stop();
-            showAndHideMessage("Game over! Your score is " + gameState.getPlayerScore() + ".", 3);
-            gameIsRunning = false;
-            randomModeActive = false;
-
-            String speedText = gameView.getBallSpeedLabel().getText();
-            if (speedText.contains("(") && speedText.contains(")")) {
-                String speedValueText = speedText.substring(speedText.indexOf("(") + 1, speedText.indexOf(")"));
-                double speedValue = Double.parseDouble(speedValueText);
-                ballVelocityX = ballVelocityY = speedValue;
-            }
-
-            String lengthText = gameView.getPaddleLengthLabel().getText();
-            if (lengthText.contains("(") && lengthText.contains(")")) {
-                String lengthValueText = lengthText.substring(lengthText.indexOf("(") + 1, lengthText.indexOf(")"));
-                double lengthValue = Double.parseDouble(lengthValueText);
-                gameView.getPlayerPaddle().setWidth(lengthValue);
-            }
-
-            gameView.getPlayerPaddle().setVisible(ballVelocityX != GameConstants.BALL_SPEED_HELL || !lengthText.equals("Length: TRANSPARENT(" + GameConstants.PADDLE_LENGTH_NORMAL + ")"));
-
-            if (resetCountdownTimeline != null) {
-                resetCountdownTimeline.stop();
-            }
         }
 
-        // Check if the gameBall hits the playerPaddle
-        if (gameView.getGameBall().intersects(gameView.getPlayerPaddle().getBoundsInLocal())) {
-            handleCollision(gameView.getGameBall().getCenterX(), gameView.getPlayerPaddle().getX(), gameView.getPlayerPaddle().getWidth(), randomModeActive);
-            gameView.getGameBall().setCenterY(gameView.getPlayerPaddle().getY() - gameView.getGameBall().getRadius());
-            updateScore();
-        }
-
-        // Check if the gameBall hits any brick
-        outerLoop:
-        for (int i = 0; i < GameConstants.TOTAL_BRICK_ROWS; i++) {
-            for (int j = 0; j < GameConstants.TOTAL_BRICK_COLUMNS; j++) {
-                if (gameView.getGameBricks()[i][j].isVisible() && gameView.getGameBall().intersects(gameView.getGameBricks()[i][j].getBoundsInLocal()) && !Color.RED.equals(gameView.getGameBricks()[i][j].getFill())) {
-                    handleCollision(gameView.getGameBall().getCenterX(), gameView.getPlayerPaddle().getX(), gameView.getPlayerPaddle().getWidth(), randomModeActive);
-                    gameView.getGameBricks()[i][j].setVisible(false);
-                    updateScore();
-                    break outerLoop;
-                }
-            }
-        }
-
-        if (randomModeActive && random.nextInt(100) < 5) {
-            changeSpeed();
-            changeLength();
-        }
-
-        double randomFactor = randomModeActive ? (0.7 + Math.random() * 0.3) : 1.0;
-        gameView.getGameBall().setCenterX(gameView.getGameBall().getCenterX() + ballVelocityX * Math.cos(ballTrajectoryAngle) * randomFactor);
-        gameView.getGameBall().setCenterY(gameView.getGameBall().getCenterY() - ballVelocityY * Math.sin(ballTrajectoryAngle) * randomFactor);
-
-        if (resetInProgress) {
-            boolean allGameBricksBroken = true;
-            for (int i = 1; i < GameConstants.TOTAL_BRICK_ROWS; i++) {
-                for (int j = 0; j < GameConstants.TOTAL_BRICK_COLUMNS; j++) {
-                    if (gameView.getGameBricks()[i][j].isVisible()) {
-                        allGameBricksBroken = false;
-                        break;
-                    }
-                }
-                if (!allGameBricksBroken) {
-                    break;
-                }
-            }
-
-            if (allGameBricksBroken) {
-                resetInProgress = false;
-                gameState.setResetCountdownTime(10);
-                showAndHideMessage("All bricks broken! Resetting in 10 seconds...", 1);
-                gameState.getGameRoundStopwatch().pause();
-                gameState.setTotalElapsedTime(gameState.getGameRoundStopwatch().elapsedTime());
-                gameState.setLastRoundElapsedTime(gameState.getBrickResetStopwatch().elapsedTime());
-                updateTotalTimeUsedLabel();
-                updateLastRoundTimeUsedLabel();
-
-                resetCountdownTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
-                    if (gameState.getResetCountdownTime() > 0) {
-                        String message = "Resetting in " + gameState.getResetCountdownTime() + " seconds...";
-                        showAndHideMessage(message, 1);
-                        gameState.setResetCountdownTime(gameState.getResetCountdownTime() - 1);
-                    } else {
-                        showAndHideMessage("Game restarted!", 3);
-                        gameState.setResetCountdownTime(0);
-                        restoreBricks();
-                        resetCountdownTimeline.stop();
-                        gameState.getGameRoundStopwatch().resume();
-                    }
-                }));
-                resetCountdownTimeline.setCycleCount(11);
-                resetCountdownTimeline.play();
-            }
-        }
+        timerManager.stopAllTimelines();
+        uiManager.stopAllTimelines();
     }
+
 }

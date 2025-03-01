@@ -22,4 +22,9 @@ public class Stopwatch {
         long now = System.currentTimeMillis();
         return (now - start) / 1000.0;
     }
+    
+    // 添加一个方法判断秒表是否暂停
+    public boolean isPaused() {
+        return pausedTime > 0;
+    }
 }

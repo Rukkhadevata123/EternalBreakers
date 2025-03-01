@@ -14,7 +14,7 @@ public class App extends Application {
         GameState gameState = new GameState();
         GameView gameView = new GameView();
         Scene scene = new Scene(gameView.getMainPane(), GameConstants.SCREEN_WIDTH, GameConstants.SCREEN_HEIGHT + 60);
-        GameController _gameController = new GameController(gameView, gameState, scene);
+        GameController gameController = new GameController(gameView, gameState, scene);
 
         primaryStage.setTitle("Eternal Breaker");
         primaryStage.setScene(scene);

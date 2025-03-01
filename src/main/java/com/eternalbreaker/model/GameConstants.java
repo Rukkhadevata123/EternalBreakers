@@ -14,7 +14,7 @@ public class GameConstants {
     public static final int PADDLE_START_Y = SCREEN_HEIGHT - 50;
 
     // 挡板长度设置
-    public static final double PADDLE_LENGTH_LONG = 120;
+    public static final double PADDLE_LENGTH_LONG = 160;
     public static final double PADDLE_LENGTH_NORMAL = 80;
     public static final double PADDLE_LENGTH_SHORT = 40;
 
@@ -26,9 +26,9 @@ public class GameConstants {
     public static final int BRICK_TILE_GAP = 4;
 
     // 球速度设置
-    public static final double BALL_SPEED_SLOW = 5;
-    public static final double BALL_SPEED_NORMAL = 6;
-    public static final double BALL_SPEED_FAST = 7;
-    public static final double BALL_SPEED_HELL = 12;
+    public static final double BALL_SPEED_SLOW = 8;
+    public static final double BALL_SPEED_NORMAL = 9;
+    public static final double BALL_SPEED_FAST = 10;
+    public static final double BALL_SPEED_HELL = 15;
 
 }
