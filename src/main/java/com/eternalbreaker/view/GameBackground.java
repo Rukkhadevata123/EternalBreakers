@@ -34,7 +34,7 @@ public class GameBackground {
         background.setFill(gradient);
 
         // 添加到游戏面板的最底层
-        gamePane.getChildren().add(0, background);
+        gamePane.getChildren().addFirst(background);
 
         // 添加装饰性元素 - 背景星星
         // createStars();
@@ -54,17 +54,11 @@ public class GameBackground {
             // 随机星星颜色：白色、淡蓝色或淡黄色
             Color starColor;
             int colorChoice = (int) (Math.random() * 3);
-            switch (colorChoice) {
-                case 0:
-                    starColor = Color.WHITE;
-                    break;
-                case 1:
-                    starColor = Color.rgb(200, 220, 255); // 淡蓝
-                    break;
-                default:
-                    starColor = Color.rgb(255, 255, 220); // 淡黄
-                    break;
-            }
+            starColor = switch (colorChoice) {
+                case 0 -> Color.WHITE;
+                case 1 -> Color.rgb(200, 220, 255); // 淡蓝
+                default -> Color.rgb(255, 255, 220); // 淡黄
+            };
 
             star.setFill(starColor);
             star.setOpacity(Math.random() * 0.5 + 0.5); // 增加整体亮度

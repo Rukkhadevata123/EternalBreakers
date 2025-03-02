@@ -130,40 +130,40 @@ public class GameElements {
         int colorIndex = colorMapping[(row - 1) % 7];
     
         // 根据映射后的索引选择颜色
-        switch (colorIndex) {
-            case 0: // 红色系
+        bottomColor = switch (colorIndex) {
+            case 0 -> {
                 topColor = Color.rgb(255, 70, 70);
-                bottomColor = Color.rgb(200, 0, 0);
-                break;
-            case 1: // 橙色系
+                yield Color.rgb(200, 0, 0);
+            }
+            case 1 -> {
                 topColor = Color.rgb(255, 140, 0);
-                bottomColor = Color.rgb(200, 100, 0);
-                break;
-            case 2: // 黄色系
+                yield Color.rgb(200, 100, 0);
+            }
+            case 2 -> {
                 topColor = Color.rgb(255, 230, 0);
-                bottomColor = Color.rgb(220, 180, 0);
-                break;
-            case 3: // 绿色系
+                yield Color.rgb(220, 180, 0);
+            }
+            case 3 -> {
                 topColor = Color.rgb(60, 230, 60);
-                bottomColor = Color.rgb(0, 160, 0);
-                break;
-            case 4: // 青色系
+                yield Color.rgb(0, 160, 0);
+            }
+            case 4 -> {
                 topColor = Color.rgb(0, 210, 210);
-                bottomColor = Color.rgb(0, 150, 170);
-                break;
-            case 5: // 蓝色系
+                yield Color.rgb(0, 150, 170);
+            }
+            case 5 -> {
                 topColor = Color.rgb(30, 100, 255);
-                bottomColor = Color.rgb(0, 50, 180);
-                break;
-            case 6: // 紫色系
+                yield Color.rgb(0, 50, 180);
+            }
+            case 6 -> {
                 topColor = Color.rgb(180, 60, 220);
-                bottomColor = Color.rgb(130, 0, 150);
-                break;
-            default: // 粉色系 (安全防护)
+                yield Color.rgb(130, 0, 150);
+            }
+            default -> {
                 topColor = Color.rgb(255, 100, 200);
-                bottomColor = Color.rgb(200, 50, 150);
-                break;
-        }
+                yield Color.rgb(200, 50, 150);
+            }
+        };
         
         // 根据列号略微调整颜色亮度，使同一行的砖块有细微差别
         int variation = (column % 4) * 15;

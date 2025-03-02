@@ -24,7 +24,7 @@ public class Stopwatch {
     }
     
     // 添加一个方法判断秒表是否暂停
-    public boolean isPaused() {
-        return pausedTime > 0;
+    public boolean isNotPaused() {
+        return pausedTime <= 0;
     }
 }

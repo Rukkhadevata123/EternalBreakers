@@ -2,6 +2,7 @@ package com.eternalbreaker.controller;
 
 import com.eternalbreaker.model.GameConstants;
 import com.eternalbreaker.model.GameState;
+import com.eternalbreaker.model.Stopwatch;
 import com.eternalbreaker.view.GameView;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -17,7 +18,6 @@ public class GameController {
     private UIUpdateManager uiManager;
     private GameModeManager modeManager;
     private TimerManager timerManager;
-    private ScoreManager scoreManager;
     private InputManager inputManager;
 
     private Timeline animation;
@@ -44,7 +44,7 @@ public class GameController {
         // 创建所有管理器，解决循环依赖问题
         uiManager = new UIUpdateManager(gameView, gameState);
         modeManager = new GameModeManager(gameView, null, uiManager);
-        scoreManager = new ScoreManager(gameView, gameState, modeManager, null);
+        ScoreManager scoreManager = new ScoreManager(gameView, gameState, modeManager, null);
         ballPhysicsManager = new BallPhysicsManager(gameView, scoreManager, modeManager);
 
         // 设置依赖关系
@@ -158,11 +158,8 @@ public class GameController {
         gameView.getStartButton().setOnAction(e -> {
             if (!gameIsRunning && !resetInProgress) {
                 startGame();
-            } else if (gameIsRunning) {
-                pauseGame();
-            } else {
-                resumeGame();
             }
+            // 删除游戏暂停和恢复的逻辑
         });
 
         // 初始更新按钮状态
@@ -174,24 +171,27 @@ public class GameController {
             // 移动球
             ballPhysicsManager.moveBall();
 
-            // 检查是否所有砖块都被打破
-            if (ballPhysicsManager.checkAllBricksBroken()) {
-                handleAllBricksBroken();
-            }
-
-            // 检查球是否碰到底部墙壁
+            // 首先检查是否游戏失败
             if (ballPhysicsManager.checkBottomWallCollision()) {
                 handleGameLost();
+                return; // 重要：如果游戏结束，立即返回，不再检查其他条件
+            }
+
+            // 然后检查是否完成当前轮次
+            if (ballPhysicsManager.checkAllBricksBroken()) {
+                handleAllBricksBroken();
             }
         }
     }
 
-    // 在startGame方法中添加按钮状态更新
     private void startGame() {
         // 游戏状态设置
         gameIsRunning = true;
-        resetInProgress = false; // 修改为false，表示没有重置正在进行
-        gameView.getStartButton().setText("Pause");
+        resetInProgress = false;
+
+        // 删除设置按钮文本为"Pause"
+        // 按钮在游戏开始后应该被禁用，所以用户根本看不到它
+        gameView.getStartButton().setDisable(true);
 
         // 禁用游戏设置按钮
         updateButtonsState();
@@ -241,64 +241,67 @@ public class GameController {
         // updateLastRoundTimeUsedLabel();
     }
 
-    // 在pauseGame方法中添加注释解释按钮状态
-    private void pauseGame() {
-        gameIsRunning = false;
-        animation.pause();
-        gameState.getGameRoundStopwatch().pause();
-        gameState.getBrickResetStopwatch().pause(); // 确保两个秒表都暂停
-        uiManager.pauseTimers(); // 暂停时间显示更新
-
-        gameView.getStartButton().setText("Resume");
-        uiManager.showAndHideMessage("Game paused", 999);
-
-        // 保持按钮禁用状态，即使游戏暂停
-        // 我们不希望玩家在暂停时修改设置
-        // gameIsRunning为false但不更新按钮状态，确保暂停时不能修改设置
-    }
-
-    // 在resumeGame方法中添加按钮状态更新
-    private void resumeGame() {
-        gameIsRunning = true;
-        gameState.getGameRoundStopwatch().resume();
-        gameState.getBrickResetStopwatch().resume(); // 确保两个秒表都恢复
-        animation.play();
-        uiManager.startTimers(); // 恢复时间显示更新
-
-        gameView.getStartButton().setText("Pause");
-        uiManager.showAndHideMessage("Game resumed", 3);
-
-        // 再次禁用设置按钮
-        updateButtonsState();
-    }
-
     // 添加调试输出到handleAllBricksBroken方法
     private void handleAllBricksBroken() {
         System.out.println("检查所有砖块是否被打破: resetInProgress = " + resetInProgress);
 
         if (!resetInProgress) {
             resetInProgress = true; // 设置标志，防止重复处理
-            gameIsRunning = false;
-            animation.pause();
 
             // 获取下一轮的轮数
             int nextRound = gameState.getCurrentGameRound() + 1;
             gameState.setCurrentGameRound(nextRound);
 
-            // 确保消息显示明确且足够长时间可见
-            String levelCompleteMessage = String.format("恭喜! 第 %d 轮完成!", gameState.getCurrentGameRound() - 1);
+            // 记录当前轮次时间，并暂停UI计时器显示更新
+            gameState.setTotalElapsedTime(
+                    gameState.getTotalElapsedTime() + gameState.getGameRoundStopwatch().elapsedTime());
+            gameState.setLastRoundElapsedTime(gameState.getBrickResetStopwatch().elapsedTime());
+
+            // 暂停计时器更新，但不暂停游戏动画
+            uiManager.pauseTimers();
+
+            // 显示轮次完成消息，但继续保持球的运动
+            String levelCompleteMessage = String.format("恭喜! 第 %d 轮完成!", nextRound - 1);
             uiManager.showAndHideMessage(levelCompleteMessage, 2);
 
             // 添加调试消息
             System.out.println("所有砖块已消除，准备进入第 " + nextRound + " 轮");
 
-            // 等待短暂时间后开始倒计时，确保完成消息可见
-            Timeline delayTimeline = new Timeline(new KeyFrame(Duration.seconds(1.5), e -> {
-                System.out.println("开始倒计时到下一轮...");
-                timerManager.startResetCountdown(this::resetForNextRound);
-            }));
-            delayTimeline.play();
+            // 球保持运动的情况下，开始3秒倒计时
+            startNextRoundCountdown();
         }
+    }
+
+    // 修改startNextRoundCountdown方法
+    private void startNextRoundCountdown() {
+        // 设置倒计时时间
+        gameState.setResetCountdownTime(3);
+
+        // 使用timerManager来创建和管理倒计时，而不是使用局部变量
+        timerManager.startResetCountdown(() -> {
+            // 确保游戏仍在运行中才执行下一轮的重置
+            if (gameIsRunning && resetInProgress) {
+                // 倒计时结束后创建新的秒表实例
+                gameState.setGameRoundStopwatch(new Stopwatch());
+                gameState.setBrickResetStopwatch(new Stopwatch());
+
+                // 重启UI计时器显示
+                uiManager.startTimers();
+
+                // 重置砖块
+                resetBricks();
+                resetInProgress = false;
+
+                // 如果是随机模式，更新速度和长度
+                if (modeManager.isRandomModeActive()) {
+                    modeManager.changeSpeed();
+                    modeManager.changeLength();
+                }
+
+                // 显示新回合开始的消息
+                uiManager.showAndHideMessage("开始第 " + gameState.getCurrentGameRound() + " 轮!", 2);
+            }
+        });
     }
 
     // 在handleGameLost方法中添加按钮状态更新
@@ -306,6 +309,20 @@ public class GameController {
         gameIsRunning = false;
         resetInProgress = false;
         animation.pause();
+
+        // 停止所有正在运行的计时器
+        timerManager.stopAllTimelines();
+
+        // 添加以下代码 - 记录当前轮次已用时间
+        if (gameState.getGameRoundStopwatch() != null) {
+            gameState.getGameRoundStopwatch().pause();
+            // 更新总时间 - 加上当前轮次已用时间
+            gameState.setTotalElapsedTime(
+                    gameState.getTotalElapsedTime() + gameState.getGameRoundStopwatch().elapsedTime());
+            // 更新最后一轮的时间
+            gameState.setLastRoundElapsedTime(gameState.getBrickResetStopwatch().elapsedTime());
+        }
+
         uiManager.pauseTimers(); // 游戏结束时停止计时器显示更新
 
         // 启用游戏设置按钮
@@ -318,8 +335,11 @@ public class GameController {
                 gameState.getTotalElapsedTime());
 
         // 显示游戏结束消息，持续时间更长
-        uiManager.showAndHideMessage(gameOverMessage, 999); // 使用999表示持久显示，直到下一次开始
+        uiManager.showAndHideMessage(gameOverMessage, 999);
+
+        // 重新启用开始按钮并设置文本
         gameView.getStartButton().setText("Start");
+        gameView.getStartButton().setDisable(false);
 
         // 重置游戏模式但保留分数和时间统计
         modeManager.resetGameModes();
@@ -330,40 +350,13 @@ public class GameController {
         // 重置球的速度为正常速度
         ballPhysicsManager.setBallVelocity(GameConstants.BALL_SPEED_NORMAL);
 
+        // 更新游戏时间标签，确保显示正确的最终时间
+        gameView.getTotalTimeUsedLabel()
+                .setText("Total time used: " + String.format("%.1f", gameState.getTotalElapsedTime()) + " seconds");
+        gameView.getLastRoundTimeLabel()
+                .setText("Last round time: " + String.format("%.1f", gameState.getLastRoundElapsedTime()) + " seconds");
+
         // ⚠️ 不要在这里重置分数和轮数！让玩家能看到自己的成绩
-    }
-
-    // 修改resetForNextRound方法，删除重复设置秒表的代码
-    private void resetForNextRound() {
-        System.out.println("重置下一轮游戏");
-
-        // 重置砖块和球
-        resetBricks();
-        resetBall();
-
-        // 重要：先将resetInProgress设置为false，表示重置过程已完成
-        resetInProgress = false;
-
-        // 然后才设置游戏运行状态
-        gameIsRunning = true;
-
-        // 恢复游戏动画
-        animation.play();
-
-        // 重新禁用按钮
-        updateButtonsState();
-
-        // 不需要在这里重置秒表，TimerManager.startResetCountdown中已经做了
-        // gameState.setBrickResetStopwatch(new Stopwatch());
-
-        // 如果是随机模式，更新速度和长度
-        if (modeManager.isRandomModeActive()) {
-            modeManager.changeSpeed();
-            modeManager.changeLength();
-        }
-
-        // 显示新回合开始的消息
-        uiManager.showAndHideMessage("开始第 " + gameState.getCurrentGameRound() + " 轮!", 2);
     }
 
     private void resetBricks() {
@@ -391,4 +384,7 @@ public class GameController {
         uiManager.stopAllTimelines();
     }
 
+    public InputManager getInputManager() {
+        return inputManager;
+    }
 }

@@ -43,7 +43,6 @@ public class TimerManager {
         gameStartCountdownTimeline.play();
     }
 
-    // 修改倒计时方法
     public void startResetCountdown(Runnable onComplete) {
         // 设置倒计时时间
         gameState.setResetCountdownTime(3);
@@ -53,23 +52,29 @@ public class TimerManager {
             resetCountdownTimeline.stop();
         }
 
-        // 记录游戏时间 (此轮结束，所以要记录此轮的时间)
+        // 记录当前轮次时间
         gameState.getGameRoundStopwatch().pause();
         gameState
                 .setTotalElapsedTime(gameState.getTotalElapsedTime() + gameState.getGameRoundStopwatch().elapsedTime());
         gameState.setLastRoundElapsedTime(gameState.getBrickResetStopwatch().elapsedTime());
+
+        // 创建一个临时秒表来记录倒计时期间的时间
+        Stopwatch countdownStopwatch = new Stopwatch();
 
         // 创建倒计时动画
         resetCountdownTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             if (gameState.getResetCountdownTime() > 0) {
                 // 确保倒计时消息更明显
                 String message = "下一关将在 " + gameState.getResetCountdownTime() + " 秒后开始...";
-                System.out.println(message); // 添加调试输出
                 uiManager.showAndHideMessage(message, 1);
                 gameState.setResetCountdownTime(gameState.getResetCountdownTime() - 1);
             } else {
                 // 倒计时结束
                 resetCountdownTimeline.stop();
+
+                // 将倒计时期间的时间加入到总时间中
+                gameState.setTotalElapsedTime(
+                        gameState.getTotalElapsedTime() + countdownStopwatch.elapsedTime());
 
                 // 显示新一轮开始消息
                 uiManager.showAndHideMessage("第 " + gameState.getCurrentGameRound() + " 轮开始!", 2);
@@ -80,7 +85,6 @@ public class TimerManager {
 
                 // 确保回调被执行
                 if (onComplete != null) {
-                    System.out.println("倒计时结束，执行回调");
                     onComplete.run();
                 }
             }
@@ -88,7 +92,6 @@ public class TimerManager {
 
         resetCountdownTimeline.setCycleCount(4); // 3秒倒计时+1次结束
         resetCountdownTimeline.play();
-        System.out.println("倒计时开始");
     }
 
     public void stopAllTimelines() {
@@ -99,5 +102,9 @@ public class TimerManager {
         if (resetCountdownTimeline != null) {
             resetCountdownTimeline.stop();
         }
+
+        // 清除可能的遗留消息
+        // 注意：需要在UIUpdateManager中添加hideMessage方法
+        uiManager.hideMessage();
     }
 }

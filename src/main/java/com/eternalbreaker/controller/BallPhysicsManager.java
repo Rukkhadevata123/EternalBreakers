@@ -7,7 +7,7 @@ import javafx.scene.paint.Color;
 public class BallPhysicsManager {
     private final GameView gameView;
     private final ScoreManager scoreManager;
-    private GameModeManager gameModeManager;
+    private final GameModeManager gameModeManager;
 
     private double ballVelocityX = GameConstants.BALL_SPEED_NORMAL;
     private double ballVelocityY = GameConstants.BALL_SPEED_NORMAL;
@@ -134,13 +134,7 @@ public class BallPhysicsManager {
                         gameView.getGameBall().intersects(gameView.getGameBricks()[i][j].getBoundsInLocal()) &&
                         !Color.RED.equals(gameView.getGameBricks()[i][j].getFill())) {
 
-                    double brickCenterX = gameView.getGameBricks()[i][j].getX() +
-                            gameView.getGameBricks()[i][j].getWidth() / 2;
-                    double brickCenterY = gameView.getGameBricks()[i][j].getY() +
-                            gameView.getGameBricks()[i][j].getHeight() / 2;
-                    double distance = Math.sqrt(
-                            Math.pow(gameView.getGameBall().getCenterX() - brickCenterX, 2) +
-                                    Math.pow(gameView.getGameBall().getCenterY() - brickCenterY, 2));
+                    double distance = getDistance(i, j);
 
                     if (distance < minDistance) {
                         minDistance = distance;
@@ -197,6 +191,16 @@ public class BallPhysicsManager {
             gameView.getGameBricks()[collisionRow][collisionCol].setVisible(false);
             scoreManager.updateScore();
         }
+    }
+
+    private double getDistance(int i, int j) {
+        double brickCenterX = gameView.getGameBricks()[i][j].getX() +
+                gameView.getGameBricks()[i][j].getWidth() / 2;
+        double brickCenterY = gameView.getGameBricks()[i][j].getY() +
+                gameView.getGameBricks()[i][j].getHeight() / 2;
+        return Math.sqrt(
+                Math.pow(gameView.getGameBall().getCenterX() - brickCenterX, 2) +
+                        Math.pow(gameView.getGameBall().getCenterY() - brickCenterY, 2));
     }
 
     private double calculateHitFactor(double ballCenterX, double paddleX, double paddleWidth,

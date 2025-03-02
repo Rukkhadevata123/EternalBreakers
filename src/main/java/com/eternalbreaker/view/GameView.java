@@ -15,8 +15,7 @@ import javafx.scene.layout.Pane;
 public class GameView {
     // 视图层组件
     private final BorderPane mainPane;
-    private final Pane gamePane;
-    
+
     // 游戏元素
     private final Circle gameBall;
     private final Rectangle playerPaddle;
@@ -48,7 +47,7 @@ public class GameView {
         mainPane = new BorderPane();
         
         // 创建游戏面板
-        gamePane = new Pane();
+        Pane gamePane = new Pane();
         mainPane.setCenter(gamePane);
         
         // 创建和配置菜单面板
