@@ -1,4 +1,3 @@
-// 将constants内联，完全自包含的单文件解决方案
 class Game {
     static CONSTANTS = {
         SCREEN_WIDTH: 600,
@@ -19,7 +18,7 @@ class Game {
         BALL_SPEED_FAST: 10,
         BALL_SPEED_HELL: 15
     };
-    
+
     static BRICK_COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
     static BRICK_BORDER_COLORS = ['#E55A5A', '#3CBAB3', '#3A9BC1', '#7FB69E', '#F0D785'];
 
@@ -54,15 +53,16 @@ class Game {
 
     initBricks() {
         this.bricks = [];
-        for (let i = 0; i < Game.CONSTANTS.TOTAL_BRICK_ROWS; i++) {
+        const C = Game.CONSTANTS;
+        for (let i = 0; i < C.TOTAL_BRICK_ROWS; i++) {
             this.bricks[i] = [];
-            for (let j = 0; j < Game.CONSTANTS.TOTAL_BRICK_COLUMNS; j++) {
+            for (let j = 0; j < C.TOTAL_BRICK_COLUMNS; j++) {
                 this.bricks[i][j] = {
                     visible: true,
-                    x: j * Game.CONSTANTS.BRICK_TILE_WIDTH + Game.CONSTANTS.BRICK_TILE_GAP,
-                    y: i * Game.CONSTANTS.BRICK_TILE_HEIGHT + Game.CONSTANTS.BRICK_TILE_GAP + 30,
-                    width: Game.CONSTANTS.BRICK_TILE_WIDTH - 2 * Game.CONSTANTS.BRICK_TILE_GAP,
-                    height: Game.CONSTANTS.BRICK_TILE_HEIGHT - 2 * Game.CONSTANTS.BRICK_TILE_GAP,
+                    x: j * C.BRICK_TILE_WIDTH + C.BRICK_TILE_GAP,
+                    y: i * C.BRICK_TILE_HEIGHT + C.BRICK_TILE_GAP + 30,
+                    width: C.BRICK_TILE_WIDTH - 2 * C.BRICK_TILE_GAP,
+                    height: C.BRICK_TILE_HEIGHT - 2 * C.BRICK_TILE_GAP,
                     color: Game.BRICK_COLORS[i]
                 };
             }
@@ -77,28 +77,26 @@ class Game {
             this.paddleX = Math.max(0, Math.min(Game.CONSTANTS.SCREEN_WIDTH - this.paddleWidth, mouseX - this.paddleWidth / 2));
         });
 
-        // 按钮事件
-        const buttons = {
-            slowSpeedBtn: () => this.setBallSpeed(Game.CONSTANTS.BALL_SPEED_SLOW),
-            normalSpeedBtn: () => this.setBallSpeed(Game.CONSTANTS.BALL_SPEED_NORMAL),
-            fastSpeedBtn: () => this.setBallSpeed(Game.CONSTANTS.BALL_SPEED_FAST),
-            longPaddleBtn: () => this.setPaddleLength(Game.CONSTANTS.PADDLE_LENGTH_LONG),
-            normalPaddleBtn: () => this.setPaddleLength(Game.CONSTANTS.PADDLE_LENGTH_NORMAL),
-            shortPaddleBtn: () => this.setPaddleLength(Game.CONSTANTS.PADDLE_LENGTH_SHORT),
-            hellModeBtn: () => this.setHellMode(),
-            randomModeBtn: () => this.toggleRandomMode(),
-            startBtn: () => this.startGame()
-        };
+        // 使用数组简化重复的按钮事件绑定
+        const buttonConfigs = [
+            ['slowSpeedBtn', () => this.setBallSpeed(Game.CONSTANTS.BALL_SPEED_SLOW)],
+            ['normalSpeedBtn', () => this.setBallSpeed(Game.CONSTANTS.BALL_SPEED_NORMAL)],
+            ['fastSpeedBtn', () => this.setBallSpeed(Game.CONSTANTS.BALL_SPEED_FAST)],
+            ['longPaddleBtn', () => this.setPaddleLength(Game.CONSTANTS.PADDLE_LENGTH_LONG)],
+            ['normalPaddleBtn', () => this.setPaddleLength(Game.CONSTANTS.PADDLE_LENGTH_NORMAL)],
+            ['shortPaddleBtn', () => this.setPaddleLength(Game.CONSTANTS.PADDLE_LENGTH_SHORT)],
+            ['hellModeBtn', () => this.setHellMode()],
+            ['randomModeBtn', () => this.toggleRandomMode()],
+            ['startBtn', () => this.startGame()]
+        ];
 
-        Object.entries(buttons).forEach(([id, handler]) => {
-            document.getElementById(id).addEventListener('click', () => {
-                if (id === 'startBtn' || !this.gameRunning) handler();
-            });
+        buttonConfigs.forEach(([id, handler]) => {
+            document.getElementById(id).addEventListener('click', handler);
         });
     }
 
-    // 设置方法
     setBallSpeed(speed) {
+        if (this.gameRunning) return;
         this.ballVelocityX = this.ballVelocityY = speed;
         this.hellMode = (speed === Game.CONSTANTS.BALL_SPEED_HELL);
         this.randomMode = false;
@@ -106,14 +104,14 @@ class Game {
     }
 
     setPaddleLength(length) {
-        if (!this.hellMode) {
-            this.paddleWidth = length;
-            this.paddleVisible = true;
-            this.randomMode = false;
-        }
+        if (this.gameRunning || this.hellMode) return;
+        this.paddleWidth = length;
+        this.paddleVisible = true;
+        this.randomMode = false;
     }
 
     setHellMode() {
+        if (this.gameRunning) return;
         this.hellMode = true;
         this.randomMode = false;
         this.ballVelocityX = this.ballVelocityY = Game.CONSTANTS.BALL_SPEED_HELL;
@@ -122,6 +120,7 @@ class Game {
     }
 
     toggleRandomMode() {
+        if (this.gameRunning) return;
         this.randomMode = !this.randomMode;
         this.hellMode = false;
 
@@ -139,15 +138,13 @@ class Game {
         if (!this.randomMode) return;
 
         const speeds = [Game.CONSTANTS.BALL_SPEED_SLOW, Game.CONSTANTS.BALL_SPEED_NORMAL, Game.CONSTANTS.BALL_SPEED_FAST];
-        const randomSpeed = speeds[Math.floor(Math.random() * 3)] * (1 + Math.random());
-        this.ballVelocityX = this.ballVelocityY = randomSpeed;
-
         const lengths = [Game.CONSTANTS.PADDLE_LENGTH_SHORT, Game.CONSTANTS.PADDLE_LENGTH_NORMAL, Game.CONSTANTS.PADDLE_LENGTH_LONG];
+
+        this.ballVelocityX = this.ballVelocityY = speeds[Math.floor(Math.random() * 3)] * (1 + Math.random());
         this.paddleWidth = lengths[Math.floor(Math.random() * 3)] * (1 + Math.random());
         this.paddleVisible = true;
     }
 
-    // 游戏循环
     init() {
         this.updateInfo();
         this.gameLoop();
@@ -157,7 +154,7 @@ class Game {
         if (this.gameRunning) {
             this.moveBall();
             this.checkCollisions();
-            
+
             if (this.randomMode && Math.random() < 0.05) {
                 this.changeRandomSettings();
             }
@@ -176,11 +173,11 @@ class Game {
 
     checkCollisions() {
         const C = Game.CONSTANTS;
-        
+
         // 墙壁碰撞
         if (this.ballX < C.BALL_SIZE_RADIUS + 1 || this.ballX > C.SCREEN_WIDTH - C.BALL_SIZE_RADIUS - 1) {
             this.ballAngle = Math.PI - this.ballAngle;
-            this.ballX = this.ballX < C.BALL_SIZE_RADIUS + 1 ? C.BALL_SIZE_RADIUS + 1 : C.SCREEN_WIDTH - C.BALL_SIZE_RADIUS - 1;
+            this.ballX = Math.max(C.BALL_SIZE_RADIUS + 1, Math.min(C.SCREEN_WIDTH - C.BALL_SIZE_RADIUS - 1, this.ballX));
             if (this.randomMode) this.ballAngle += (Math.random() * 0.2 - 0.1);
         }
 
@@ -190,18 +187,18 @@ class Game {
             if (this.randomMode) this.ballAngle += (Math.random() * 0.2 - 0.1);
         }
 
-        // 挡板碰撞
-        if (!(this.ballX - C.BALL_SIZE_RADIUS + C.BALL_SIZE_RADIUS * 2 <= this.paddleX || 
-              this.paddleX + this.paddleWidth <= this.ballX - C.BALL_SIZE_RADIUS || 
-              this.ballY - C.BALL_SIZE_RADIUS + C.BALL_SIZE_RADIUS * 2 <= C.PADDLE_START_Y || 
-              C.PADDLE_START_Y + C.PADDLE_HEIGHT_CONSTANT <= this.ballY - C.BALL_SIZE_RADIUS)) {
-            
+        // 挡板碰撞检测
+        if (this.ballX + C.BALL_SIZE_RADIUS > this.paddleX &&
+            this.ballX - C.BALL_SIZE_RADIUS < this.paddleX + this.paddleWidth &&
+            this.ballY + C.BALL_SIZE_RADIUS > C.PADDLE_START_Y &&
+            this.ballY - C.BALL_SIZE_RADIUS < C.PADDLE_START_Y + C.PADDLE_HEIGHT_CONSTANT) {
+
             let hitFactor = (this.ballX - this.paddleX) / this.paddleWidth - 0.5;
             if (this.randomMode) hitFactor += (Math.random() - 0.5) / 2.0;
 
-            this.ballAngle = hitFactor === 0 ? Math.PI / 2 : 
-                hitFactor < 0 ? Math.PI - Math.max(hitFactor * -Math.PI / 2, Math.PI / 6) : 
-                Math.max(hitFactor * Math.PI / 2, Math.PI / 6);
+            this.ballAngle = hitFactor === 0 ? Math.PI / 2 :
+                hitFactor < 0 ? Math.PI - Math.max(hitFactor * -Math.PI / 2, Math.PI / 6) :
+                    Math.max(hitFactor * Math.PI / 2, Math.PI / 6);
 
             if (this.randomMode) this.ballAngle += (Math.random() * 0.2 - 0.1);
             this.ballY = C.PADDLE_START_Y - C.BALL_SIZE_RADIUS;
@@ -212,12 +209,12 @@ class Game {
         for (let i = 0; i < C.TOTAL_BRICK_ROWS; i++) {
             for (let j = 0; j < C.TOTAL_BRICK_COLUMNS; j++) {
                 const brick = this.bricks[i][j];
-                if (brick.visible && 
-                    !(this.ballX - C.BALL_SIZE_RADIUS + C.BALL_SIZE_RADIUS * 2 <= brick.x || 
-                      brick.x + brick.width <= this.ballX - C.BALL_SIZE_RADIUS || 
-                      this.ballY - C.BALL_SIZE_RADIUS + C.BALL_SIZE_RADIUS * 2 <= brick.y || 
-                      brick.y + brick.height <= this.ballY - C.BALL_SIZE_RADIUS)) {
-                    
+                if (brick.visible &&
+                    this.ballX + C.BALL_SIZE_RADIUS > brick.x &&
+                    this.ballX - C.BALL_SIZE_RADIUS < brick.x + brick.width &&
+                    this.ballY + C.BALL_SIZE_RADIUS > brick.y &&
+                    this.ballY - C.BALL_SIZE_RADIUS < brick.y + brick.height) {
+
                     this.handleBrickCollision(brick);
                     brick.visible = false;
                     this.score += this.getScoreIncrement();
@@ -229,24 +226,19 @@ class Game {
         // 游戏结束检查
         if (this.ballY > C.SCREEN_HEIGHT - C.BALL_SIZE_RADIUS) {
             this.gameOver();
-        } else {
-            let allDestroyed = true;
-            for (let i = 0; i < C.TOTAL_BRICK_ROWS && allDestroyed; i++) {
-                for (let j = 0; j < C.TOTAL_BRICK_COLUMNS && allDestroyed; j++) {
-                    if (this.bricks[i][j].visible) allDestroyed = false;
-                }
-            }
-            if (allDestroyed) this.victory();
+        } else if (this.bricks.every(row => row.every(brick => !brick.visible))) {
+            this.victory();
         }
     }
 
     handleBrickCollision(brick) {
-        const overlapLeft = this.ballX + Game.CONSTANTS.BALL_SIZE_RADIUS - brick.x;
-        const overlapRight = brick.x + brick.width - (this.ballX - Game.CONSTANTS.BALL_SIZE_RADIUS);
-        const overlapTop = this.ballY + Game.CONSTANTS.BALL_SIZE_RADIUS - brick.y;
-        const overlapBottom = brick.y + brick.height - (this.ballY - Game.CONSTANTS.BALL_SIZE_RADIUS);
+        const C = Game.CONSTANTS;
+        const overlapLeft = this.ballX + C.BALL_SIZE_RADIUS - brick.x;
+        const overlapRight = brick.x + brick.width - (this.ballX - C.BALL_SIZE_RADIUS);
+        const overlapTop = this.ballY + C.BALL_SIZE_RADIUS - brick.y;
+        const overlapBottom = brick.y + brick.height - (this.ballY - C.BALL_SIZE_RADIUS);
 
-        const minOverlap = Math.min(Math.min(overlapLeft, overlapRight), Math.min(overlapTop, overlapBottom));
+        const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
 
         if (minOverlap === overlapLeft || minOverlap === overlapRight) {
             this.ballAngle = Math.PI - this.ballAngle;
@@ -257,15 +249,10 @@ class Game {
         if (this.randomMode) this.ballAngle += (Math.random() * 0.2 - 0.1);
 
         // 防止球卡住
-        if (minOverlap === overlapLeft) {
-            this.ballX = brick.x - Game.CONSTANTS.BALL_SIZE_RADIUS - 1;
-        } else if (minOverlap === overlapRight) {
-            this.ballX = brick.x + brick.width + Game.CONSTANTS.BALL_SIZE_RADIUS + 1;
-        } else if (minOverlap === overlapTop) {
-            this.ballY = brick.y - Game.CONSTANTS.BALL_SIZE_RADIUS - 1;
-        } else if (minOverlap === overlapBottom) {
-            this.ballY = brick.y + brick.height + Game.CONSTANTS.BALL_SIZE_RADIUS + 1;
-        }
+        if (minOverlap === overlapLeft) this.ballX = brick.x - C.BALL_SIZE_RADIUS - 1;
+        else if (minOverlap === overlapRight) this.ballX = brick.x + brick.width + C.BALL_SIZE_RADIUS + 1;
+        else if (minOverlap === overlapTop) this.ballY = brick.y - C.BALL_SIZE_RADIUS - 1;
+        else if (minOverlap === overlapBottom) this.ballY = brick.y + brick.height + C.BALL_SIZE_RADIUS + 1;
     }
 
     getScoreIncrement() {
@@ -275,14 +262,21 @@ class Game {
         if (this.hellMode || !this.paddleVisible) baseScore += 6;
         if (this.randomMode) baseScore += Math.floor(Math.random() * 10);
 
-        const tolerance = 0.5;
-        if (Math.abs(this.ballVelocityX - C.BALL_SPEED_SLOW) < tolerance) baseScore += 1;
-        else if (Math.abs(this.ballVelocityX - C.BALL_SPEED_NORMAL) < tolerance) baseScore += 2;
-        else if (Math.abs(this.ballVelocityX - C.BALL_SPEED_FAST) < tolerance) baseScore += 3;
+        // 简化速度分数计算
+        const speedScores = {
+            [C.BALL_SPEED_SLOW]: 1,
+            [C.BALL_SPEED_NORMAL]: 2,
+            [C.BALL_SPEED_FAST]: 3
+        };
+        baseScore += speedScores[Math.round(this.ballVelocityX)] || 0;
 
-        if (Math.abs(this.paddleWidth - C.PADDLE_LENGTH_LONG) < tolerance) baseScore += 1;
-        else if (Math.abs(this.paddleWidth - C.PADDLE_LENGTH_NORMAL) < tolerance) baseScore += 2;
-        else if (Math.abs(this.paddleWidth - C.PADDLE_LENGTH_SHORT) < tolerance) baseScore += 3;
+        // 简化挡板分数计算
+        const paddleScores = {
+            [C.PADDLE_LENGTH_LONG]: 1,
+            [C.PADDLE_LENGTH_NORMAL]: 2,
+            [C.PADDLE_LENGTH_SHORT]: 3
+        };
+        baseScore += paddleScores[Math.round(this.paddleWidth)] || 0;
 
         return baseScore;
     }
@@ -293,11 +287,8 @@ class Game {
 
         let countdownTime = 3;
         this.countdown = setInterval(() => {
-            if (countdownTime > 1) {
+            if (countdownTime > 0) {
                 this.showMessage(`Starting in ${countdownTime}...`, 0);
-                countdownTime--;
-            } else if (countdownTime === 1) {
-                this.showMessage("Starting in 1...", 0);
                 countdownTime--;
             } else {
                 this.showMessage("GO!", 1);
@@ -343,26 +334,25 @@ class Game {
         this.ctx.clearRect(0, 0, C.SCREEN_WIDTH, C.SCREEN_HEIGHT);
 
         // 绘制砖块
-        for (let i = 0; i < C.TOTAL_BRICK_ROWS; i++) {
-            for (let j = 0; j < C.TOTAL_BRICK_COLUMNS; j++) {
-                const brick = this.bricks[i][j];
-                if (brick.visible) {
-                    const gradient = this.ctx.createLinearGradient(brick.x, brick.y, brick.x, brick.y + brick.height);
-                    gradient.addColorStop(0, brick.color);
-                    gradient.addColorStop(1, Game.BRICK_BORDER_COLORS[i]);
+        this.bricks.forEach((row, i) => {
+            row.forEach(brick => {
+                if (!brick.visible) return;
 
-                    this.ctx.fillStyle = gradient;
-                    this.ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-                    this.ctx.strokeStyle = Game.BRICK_BORDER_COLORS[i];
-                    this.ctx.lineWidth = 1.5;
-                    this.ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
-                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-                    this.ctx.fillRect(brick.x + 1, brick.y + 1, brick.width - 2, 3);
-                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-                    this.ctx.fillRect(brick.x + 1, brick.y + brick.height - 3, brick.width - 2, 2);
-                }
-            }
-        }
+                const gradient = this.ctx.createLinearGradient(brick.x, brick.y, brick.x, brick.y + brick.height);
+                gradient.addColorStop(0, brick.color);
+                gradient.addColorStop(1, Game.BRICK_BORDER_COLORS[i]);
+
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+                this.ctx.strokeStyle = Game.BRICK_BORDER_COLORS[i];
+                this.ctx.lineWidth = 1.5;
+                this.ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.fillRect(brick.x + 1, brick.y + 1, brick.width - 2, 3);
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                this.ctx.fillRect(brick.x + 1, brick.y + brick.height - 3, brick.width - 2, 2);
+            });
+        });
 
         // 绘制球
         const ballGradient = this.ctx.createRadialGradient(this.ballX - 3, this.ballY - 3, 0, this.ballX, this.ballY, C.BALL_SIZE_RADIUS);
@@ -407,11 +397,5 @@ class Game {
                 this.statusMessage.classList.add('hidden');
             }, duration * 1000);
         }
-    }
-
-    shutdown() {
-        if (this.countdown) clearInterval(this.countdown);
-        if (this.messageHider) clearTimeout(this.messageHider);
-        this.gameRunning = false;
     }
 }
