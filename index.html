@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eternal Breaker - Classic Brick Breaking Game</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧱</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🧱 Eternal Breaker</h1>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="control-row">
+                <div class="control-group">
+                    <span class="control-label">Ball Speed:</span>
+                    <button id="slowSpeedBtn">Slow</button>
+                    <button id="normalSpeedBtn">Normal</button>
+                    <button id="fastSpeedBtn">Fast</button>
+                </div>
+                <div class="control-group">
+                    <button id="startBtn">🚀 Start Game</button>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-group">
+                    <span class="control-label">Paddle Size:</span>
+                    <button id="longPaddleBtn">Long</button>
+                    <button id="normalPaddleBtn">Normal</button>
+                    <button id="shortPaddleBtn">Short</button>
+                </div>
+                <div class="control-group">
+                    <button id="hellModeBtn">🔥 Hell Mode</button>
+                    <button id="randomModeBtn">🎲 Random Mode</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Info Panel -->
+            <div class="info-panel">
+                <div class="info-title">Game Statistics</div>
+                <div class="info-item" id="scoreDisplay">Score: 0</div>
+                <div class="info-item" id="speedDisplay">Speed: 9</div>
+                <div class="info-item" id="paddleDisplay">Paddle: 80</div>
+            </div>
+
+            <!-- Game Area -->
+            <div class="game-area">
+                <canvas id="gameCanvas" width="600" height="400"></canvas>
+                <div id="statusMessage" class="status-message hidden">Ready to Play!</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="js/game.js"></script>
+    <script>
+        // Initialize game
+        document.addEventListener('DOMContentLoaded', () => {
+            const game = new Game();
+            game.init();
+            
+            // Add score animation effect
+            let lastScore = 0;
+            const scoreElement = document.getElementById('scoreDisplay');
+            
+            setInterval(() => {
+                if (game.score !== lastScore) {
+                    scoreElement.classList.add('score-updated');
+                    setTimeout(() => {
+                        scoreElement.classList.remove('score-updated');
+                    }, 300);
+                    lastScore = game.score;
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
